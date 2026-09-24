@@ -32,7 +32,16 @@ jobs:
       - name: Install dependencies
         run: pip install -e . tox
       - name: Run tox (pandas version matrix)
-        run: tox
+        # pandas==2.2.0 predates Python 3.13 wheel support and fails to build
+        # from source on newer compilers (GCC 13's stricter C++ attribute
+        # placement rules break pandas 2.2.0's generated Cython code).
+        # pandas==2.2.3 added 3.13 wheels, so only it runs on that interpreter.
+        run: |
+          if [ "${{ matrix.python-version }}" = "3.13" ]; then
+            tox -e pandas223
+          else
+            tox
+          fi
 
   build-package:
     # Mirrors the real pipeline's "build_for_artifactory" stage: build the
