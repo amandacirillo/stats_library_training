@@ -1,0 +1,10 @@
+pytest
+pytest-cov
+tox
+flake8
+mypy
+pandas-stubs
+build
+twine
+sphinx
+sphinx-rtd-theme

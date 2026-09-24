@@ -1,0 +1,91 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -e . -r requirements-dev.txt
+      - name: flake8
+        run: flake8 src tests
+      - name: mypy
+        run: mypy
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: pip install -e . tox
+      - name: Run tox (pandas version matrix)
+        run: tox
+
+  build-package:
+    # Mirrors the real pipeline's "build_for_artifactory" stage: build the
+    # sdist/wheel here, then `twine upload` them to an internal PyPI-compatible
+    # registry (e.g. Artifactory) using repository secrets. That last upload
+    # step is left commented out since this training repo has no registry to
+    # publish to -- the built artifact is uploaded as a workflow artifact
+    # instead so you can inspect exactly what would have been published.
+    needs: [lint-and-typecheck, test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build sdist and wheel
+        run: |
+          pip install build
+          python -m build
+      # - name: Publish to internal package registry
+      #   env:
+      #     TWINE_USERNAME: ${{ secrets.ARTIFACT_REGISTRY_USER }}
+      #     TWINE_PASSWORD: ${{ secrets.ARTIFACT_REGISTRY_TOKEN }}
+      #   run: |
+      #     pip install twine
+      #     twine upload --non-interactive --repository-url https://your-registry.example.com/api/pypi/your-repo/ dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  build-docs:
+    # Mirrors the real pipeline's "generate_docs" + "deploy_docs_stack"
+    # stages: build the Sphinx HTML here, then `cdk deploy` it to the S3 +
+    # CloudFront stack in infra/cdk/. The deploy step needs real AWS
+    # credentials and a hosted zone, so it's left as a documented command
+    # rather than wired into this training's CI -- see infra/cdk/README.md.
+    needs: [lint-and-typecheck, test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          pip install -e . -r requirements-dev.txt
+          pip install -r docs/requirements.txt
+      - name: Build Sphinx docs
+        run: sphinx-build -b html docs/source docs/build/html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docs-html
+          path: docs/build/html/

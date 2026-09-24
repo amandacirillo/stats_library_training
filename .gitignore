@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.tox/
+.venv/
+venv/
+build/
+dist/
+docs/build/
+infra/cdk/node_modules/
+infra/cdk/cdk.out/
+infra/cdk/assets/
+.DS_Store
